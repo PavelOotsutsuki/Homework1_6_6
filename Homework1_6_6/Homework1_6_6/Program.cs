@@ -266,11 +266,14 @@ namespace Homework1_6_6
 
                         if (playerMoney - exchangePrice >= 0)
                         {
-                            playerMoney -= exchangePrice;
-                            Money += exchangePrice;
-                            product = new Product(productForExchange.Name, productQuantity, productForExchange.Type);
+                            if (exchangePrice != 0)
+                            {
+                                playerMoney -= exchangePrice;
+                                Money += exchangePrice;
+                                product = new Product(productForExchange.Name, productQuantity, productForExchange.Type);
 
-                            return true;
+                                return true;
+                            }
                         }
                         else
                         {
