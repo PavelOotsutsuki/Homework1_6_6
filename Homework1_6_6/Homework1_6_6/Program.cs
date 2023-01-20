@@ -11,57 +11,13 @@ namespace Homework1_6_6
     {
         static void Main(string[] args)
         {
-            const string ExchangeProductsCommand = "1";
-            const string ShowClerkProductsCommand = "2";
-            const string ShowPlayerProductsCommand = "3";
-            const string ExitCommand = "4";
-
             float defaultMoneyClerk = 0;
             float defaultMoneyPlayer = 100000;
             Clerk clerk = new Clerk(defaultMoneyClerk);
             Player player = new Player(defaultMoneyPlayer);
-            Exchange exchange = new Exchange(clerk, player);
+            Shop shop = new Shop(clerk, player);
 
-            bool isWork = true;
-
-            while (isWork)
-            {
-                Console.Clear();
-                Console.WriteLine("Деньги продавца: " + clerk.Money);
-                Console.WriteLine("Деньги покупателя: " + player.Money+"\n");
-                Console.WriteLine(ExchangeProductsCommand + ". Совершить покупку");
-                Console.WriteLine(ShowClerkProductsCommand + ". Просмотреть список доступных товаров");
-                Console.WriteLine(ShowPlayerProductsCommand + ". Посмотреть свою сумку");
-                Console.WriteLine(ExitCommand + ". Уйти из магазина");
-
-                Console.WriteLine("Выберите команду: ");
-                string command = Console.ReadLine();
-
-                switch(command)
-                {
-                    case ExchangeProductsCommand:
-                        exchange.ExchangeProducts();
-                        break;
-
-                    case ShowClerkProductsCommand:
-                        clerk.ShowProductsInfo();
-                        break;
-
-                    case ShowPlayerProductsCommand:
-                        player.ShowProductsInfo();
-                        break;
-
-                    case ExitCommand:
-                        isWork = false;
-                        break;
-
-                    default:
-                        Console.WriteLine("Неверная команда");
-                        break;
-                }
-
-                Console.ReadKey();
-            }
+            shop.Work();
         }
     }
 
@@ -94,19 +50,9 @@ namespace Homework1_6_6
             QuantitySell = quantitySell;
         }
 
-        public virtual float Selling(float quantity, ref float quantityAll)
+        public virtual float GetExchangePrice(float quantity)
         {
-            float exchangePrice = 0;
-
-            if (quantityAll >= quantity)
-            {
-                quantityAll -= quantity;
-                exchangePrice = quantity / QuantitySell * Price;
-            }
-            else
-            {
-                Console.WriteLine("Столько товара нет. Есть только " + quantityAll + " " + Type + " товара");
-            }
+            float exchangePrice = quantity / QuantitySell * Price;
 
             return exchangePrice;
         }
@@ -184,13 +130,13 @@ namespace Homework1_6_6
 
         public ProductByCount(string name, float price, int countSell = 1) : base(name, price, Convert.ToSingle(countSell), DefaultType) { }
 
-        public override float Selling(float count, ref float quantityAll)
+        public override float GetExchangePrice(float count)
         {
             float fallenExchangePrice = 0;
 
             if (int.TryParse(Convert.ToString(count), out int number))
             {
-                return base.Selling(count, ref quantityAll);
+                return base.GetExchangePrice(count);
             }
 
             Console.WriteLine("Неверно введено кол-во товара");
@@ -205,8 +151,8 @@ namespace Homework1_6_6
 
     abstract class Person
     {
-        protected Dictionary <Product,float> Products = new Dictionary<Product, float>();
         public float Money { get; protected set; }
+        protected Dictionary <Product,float> Products = new Dictionary<Product, float>();
 
         public Person(float money)
         {
@@ -272,7 +218,7 @@ namespace Homework1_6_6
             }
         }
 
-        public bool TrySellProduct(ref float playerMoney, out Product product, out float productQuantity)
+        public bool TryGetSellingData(out float exchangePrice, out Product product, out float productQuantity)
         {
             Console.Write("Введите имя продукта: ");
             string inputName = Console.ReadLine();
@@ -280,28 +226,17 @@ namespace Homework1_6_6
             if (TryGetProduct(inputName, out Product productToFind))
             {
                 ProductToSell productForExchange = (ProductToSell)productToFind;
-                float quantityAll = Products[productForExchange];
                 Console.Write("Введите количество товара в " + productForExchange.Type + ": ");
 
                 if (float.TryParse(Console.ReadLine(), out productQuantity))
                 {
-                    float exchangePrice = productForExchange.Selling(productQuantity, ref quantityAll);
+                    exchangePrice = productForExchange.GetExchangePrice(productQuantity);
 
-                    if (playerMoney - exchangePrice >= 0)
+                    if (exchangePrice != 0)
                     {
-                        if (exchangePrice != 0)
-                        {
-                            playerMoney -= exchangePrice;
-                            Money += exchangePrice;
-                            product = new Product(productForExchange.Name, productForExchange.Type);
-                            Products[productForExchange] = quantityAll;
+                        product = productForExchange;
 
-                            return true;
-                        }
-                    }
-                    else
-                    {
-                        Console.WriteLine("Не хватает денег");
+                        return true;
                     }
                 }
                 else
@@ -316,7 +251,25 @@ namespace Homework1_6_6
 
             productQuantity = 0;
             product = null;
+            exchangePrice = 0;
             return false;
+        }
+
+        public bool TrySellProduct(Product product, float quantity)
+        {
+            if (Products[product] >= quantity)
+            {
+                return true;
+            }
+            
+            Console.WriteLine("Столько товара нет. Есть только " + Products[product] + " " + product.Type);
+            return false;
+        }
+
+        public void SellProduct(float exchangePrice, Product sellingProduct, float quantity)
+        {
+            Money += exchangePrice;
+            Products[sellingProduct] -= quantity;
         }
 
         private float ConvertQuantityAll(Product product)
@@ -331,19 +284,30 @@ namespace Homework1_6_6
     {
         public Player(float money) : base(money) { }
 
-        public void BuyProduct(float money, Product buyableProduct, float quantity)
+        public void BuyProduct(float exchangePrice, Product buyableProduct, float quantity)
         {
-            Money = money;
-            float quantityAll = 0;
+            Money -= exchangePrice;
+            Product product = new Product(buyableProduct.Name, buyableProduct.Type);
 
-            if (TryGetProduct(buyableProduct.Name, out Product existingProduct))
+            if (TryGetProduct(product.Name, out Product existingProduct))
             {
                 Products[existingProduct]+= quantity;
             }
             else
             {
-                Products.Add(buyableProduct, quantity);
+                Products.Add(product, quantity);
             }
+        }
+
+        public bool TryPayProduct(float exchangePrice)
+        {
+            if(Money>= exchangePrice)
+            {
+                return true;
+            }
+
+            Console.WriteLine("Недостаточно денег для оплаты товара. У вас только " + Money + " рублей");
+            return false;
         }
     }
 
@@ -358,13 +322,79 @@ namespace Homework1_6_6
             _player = player;
         }
 
-        public void ExchangeProducts()
+        public void SellProduct()
         {
-            float playerMoney = _player.Money;
-
-            if (_clerk.TrySellProduct(ref playerMoney, out Product productForExchange, out float quantity))
+            if (_clerk.TryGetSellingData(out float exchangePrice, out Product productForExchange, out float quantity))
             {
-                _player.BuyProduct(playerMoney, productForExchange, quantity);
+                if (_clerk.TrySellProduct(productForExchange, quantity) && _player.TryPayProduct(exchangePrice))
+                {
+                    _clerk.SellProduct(exchangePrice, productForExchange, quantity);
+                    _player.BuyProduct(exchangePrice, productForExchange, quantity);
+                }
+            }
+        }
+    }
+
+    class Shop
+    {
+        private Clerk _clerk;
+        private Player _player;
+        private Exchange _exchange;
+
+        public Shop(Clerk clerk, Player player)
+        {
+            _clerk = clerk;
+            _player = player;
+
+            _exchange = new Exchange(_clerk, _player);
+        }
+
+        public void Work()
+        {
+            const string ExchangeProductsCommand = "1";
+            const string ShowClerkProductsCommand = "2";
+            const string ShowPlayerProductsCommand = "3";
+            const string ExitCommand = "4";
+
+            bool isWork = true;
+
+            while (isWork)
+            {
+                Console.Clear();
+                Console.WriteLine("Деньги продавца: " + _clerk.Money);
+                Console.WriteLine("Деньги покупателя: " + _player.Money + "\n");
+                Console.WriteLine(ExchangeProductsCommand + ". Совершить покупку");
+                Console.WriteLine(ShowClerkProductsCommand + ". Просмотреть список доступных товаров");
+                Console.WriteLine(ShowPlayerProductsCommand + ". Посмотреть свою сумку");
+                Console.WriteLine(ExitCommand + ". Уйти из магазина");
+
+                Console.WriteLine("Выберите команду: ");
+                string command = Console.ReadLine();
+
+                switch (command)
+                {
+                    case ExchangeProductsCommand:
+                        _exchange.SellProduct();
+                        break;
+
+                    case ShowClerkProductsCommand:
+                        _clerk.ShowProductsInfo();
+                        break;
+
+                    case ShowPlayerProductsCommand:
+                        _player.ShowProductsInfo();
+                        break;
+
+                    case ExitCommand:
+                        isWork = false;
+                        break;
+
+                    default:
+                        Console.WriteLine("Неверная команда");
+                        break;
+                }
+
+                Console.ReadKey();
             }
         }
     }
