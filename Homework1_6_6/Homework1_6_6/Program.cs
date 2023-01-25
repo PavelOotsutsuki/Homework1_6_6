@@ -23,16 +23,16 @@ namespace Homework1_6_6
 
     class Product
     {
-        public string Name { get; protected set; }
-        public string Type { get; protected set; }
-
         public Product(string name, string type)
         {
             Name = name;
             Type = type;
         }
 
-        public virtual void ShowProductInfo()
+        public string Type { get; protected set; }
+        public string Name { get; protected set; }
+
+        public virtual void ShowInfo()
         {
             Console.WriteLine(Name + ":");
             Console.WriteLine();
@@ -57,9 +57,9 @@ namespace Homework1_6_6
             return exchangePrice;
         }
 
-        public override void ShowProductInfo()
+        public override void ShowInfo()
         {
-            base.ShowProductInfo();
+            base.ShowInfo();
             Console.WriteLine("Цена: " + Price + " руб за " + QuantitySell + " " + Type);
         }
 
@@ -68,10 +68,10 @@ namespace Homework1_6_6
 
     class ProductByWeight : ProductToSell
     {
-        const string DefaultType = "кг";
-        const string GramType = "г";
-        const string QuintalType = "ц";
-        const string TonType = "т";
+        private const string DefaultType = "кг";
+        private const string GramType = "г";
+        private const string QuintalType = "ц";
+        private const string TonType = "т";
 
         private Dictionary<string, float> _converts = new Dictionary<string, float>();
 
@@ -126,7 +126,7 @@ namespace Homework1_6_6
 
     class ProductByCount : ProductToSell
     {
-        const string DefaultType = "шт";
+        private const string DefaultType = "шт";
 
         public ProductByCount(string name, float price, int countSell = 1) : base(name, price, Convert.ToSingle(countSell), DefaultType) { }
 
@@ -151,19 +151,20 @@ namespace Homework1_6_6
 
     abstract class Person
     {
-        public float Money { get; protected set; }
-        protected Dictionary <Product,float> Products = new Dictionary<Product, float>();
+        protected List <Cell> Products = new List<Cell>();
 
         public Person(float money)
         {
             Money = money;
         }
 
-        public void ShowProductsInfo()
+        public float Money { get; protected set; }
+
+        public void ShowInfo()
         {
             int productNumber = 1;
 
-            foreach (var product in Products)
+            foreach (var cell in Products)
             {
                 ConsoleColor defaultColor = Console.ForegroundColor;
                 Console.ForegroundColor = ConsoleColor.Red;
@@ -173,23 +174,23 @@ namespace Homework1_6_6
 
                 Console.ForegroundColor = defaultColor;
 
-                product.Key.ShowProductInfo();
-                Console.WriteLine("Количество: " + product.Value + " " + product.Key.Type); 
+                cell.Product.ShowInfo();
+                Console.WriteLine("Количество: " + cell.Quantity + " " + cell.Product.Type); 
             }            
         }
 
-        protected bool TryGetProduct(string name, out Product desiredProduct)
+        protected bool TryGetCellProduct(string name, out Cell desiredCell)
         {
-            foreach (var product in Products)
+            foreach (var cell in Products)
             {
-                if (product.Key.Name==name)
+                if (cell.Product.Name==name)
                 {
-                    desiredProduct = product.Key;
+                    desiredCell = cell;
                     return true;
                 }
             }
 
-            desiredProduct = null;
+            desiredCell = null;
             return false;
         }
     }
@@ -205,36 +206,36 @@ namespace Homework1_6_6
             float defaultQuantityPackedBags = 50;
             float defaultQuantityWineGlasses = 9;
 
-            Products.Add(new ProductByCount("Война и мир", 1100), defaultQuantityWarAndPeace);
-            Products.Add(new ProductByWeight("Огурцы длинные", 59, 1), defaultQuantityCucumbersLong);
-            Products.Add(new ProductByWeight("Огурцы короткие", 79, 1), defaultQuantityCucumbersShort);
-            Products.Add(new ProductByWeight("Грецкие орехи", 99, 0.1f), defaultQuantityWalnuts);
-            Products.Add(new ProductByCount("Пакеты фасованные", 10), defaultQuantityPackedBags);
-            Products.Add(new ProductByCount("Бокалы для вина", 1100), defaultQuantityWineGlasses);
+            Products.Add(new Cell(new ProductByCount("Война и мир", 1100), defaultQuantityWarAndPeace));
+            Products.Add(new Cell(new ProductByWeight("Огурцы длинные", 59, 1), defaultQuantityCucumbersLong));
+            Products.Add(new Cell(new ProductByWeight("Огурцы короткие", 79, 1), defaultQuantityCucumbersShort));
+            Products.Add(new Cell(new ProductByWeight("Грецкие орехи", 99, 0.1f), defaultQuantityWalnuts));
+            Products.Add(new Cell(new ProductByCount("Пакеты фасованные", 10), defaultQuantityPackedBags));
+            Products.Add(new Cell(new ProductByCount("Бокалы для вина", 1100), defaultQuantityWineGlasses));
 
-            foreach (var product in Products)
+            foreach (var cell in Products)
             {
-                Products[product.Key] *=ConvertQuantityAll(product.Key);
+                cell.Quantity *=ConvertQuantityAll(cell.Product);
             }
         }
 
-        public bool TryGetSellingData(out float exchangePrice, out Product product, out float productQuantity)
+        public bool TryGetSellingData(out float exchangePrice, out Cell cellProduct)
         {
             Console.Write("Введите имя продукта: ");
             string inputName = Console.ReadLine();
 
-            if (TryGetProduct(inputName, out Product productToFind))
+            if (TryGetCellProduct(inputName, out Cell productToFind))
             {
-                ProductToSell productForExchange = (ProductToSell)productToFind;
+                ProductToSell productForExchange = (ProductToSell)productToFind.Product;
                 Console.Write("Введите количество товара в " + productForExchange.Type + ": ");
 
-                if (float.TryParse(Console.ReadLine(), out productQuantity))
+                if (float.TryParse(Console.ReadLine(), out float productQuantity))
                 {
                     exchangePrice = productForExchange.GetExchangePrice(productQuantity);
 
                     if (exchangePrice != 0)
                     {
-                        product = productForExchange;
+                        cellProduct = new Cell(productForExchange, productQuantity);
 
                         return true;
                     }
@@ -249,27 +250,33 @@ namespace Homework1_6_6
                 Console.WriteLine("Такого товара нет");
             }
 
-            productQuantity = 0;
-            product = null;
+            cellProduct = null;
             exchangePrice = 0;
             return false;
         }
 
-        public bool TrySellProduct(Product product, float quantity)
+        public bool TrySellProduct(Cell cellProduct)
         {
-            if (Products[product] >= quantity)
+            if (TryGetCellProduct(cellProduct.Product.Name, out Cell cell))
             {
-                return true;
+                if (cell.Quantity >= cellProduct.Quantity)
+                {
+                    return true;
+                }
             }
             
-            Console.WriteLine("Столько товара нет. Есть только " + Products[product] + " " + product.Type);
+            Console.WriteLine("Столько товара нет. Есть только " + cell.Quantity + " " + cellProduct.Product.Type);
             return false;
         }
 
-        public void SellProduct(float exchangePrice, Product sellingProduct, float quantity)
+        public void SellProduct(float exchangePrice, Cell cellProduct)
         {
             Money += exchangePrice;
-            Products[sellingProduct] -= quantity;
+
+            if (TryGetCellProduct(cellProduct.Product.Name, out Cell cell))
+            {
+                cell.Quantity -= cellProduct.Quantity;
+            }
         }
 
         private float ConvertQuantityAll(Product product)
@@ -284,18 +291,20 @@ namespace Homework1_6_6
     {
         public Player(float money) : base(money) { }
 
-        public void BuyProduct(float exchangePrice, Product buyableProduct, float quantity)
+        public void BuyProduct(float exchangePrice, Cell cell)
         {
             Money -= exchangePrice;
-            Product product = new Product(buyableProduct.Name, buyableProduct.Type);
 
-            if (TryGetProduct(product.Name, out Product existingProduct))
+            Product product = new Product(cell.Product.Name, cell.Product.Type);
+            Cell cellProduct = new Cell(product, cell.Quantity);
+
+            if (TryGetCellProduct(cellProduct.Product.Name, out Cell existingProduct))
             {
-                Products[existingProduct]+= quantity;
+                existingProduct.Quantity+= cell.Quantity;
             }
             else
             {
-                Products.Add(product, quantity);
+                Products.Add(cellProduct);
             }
         }
 
@@ -311,42 +320,15 @@ namespace Homework1_6_6
         }
     }
 
-    class Exchange
-    {
-        private Clerk _clerk;
-        private Player _player;
-
-        public Exchange(Clerk clerk, Player player)
-        {
-            _clerk = clerk;
-            _player = player;
-        }
-
-        public void SellProduct()
-        {
-            if (_clerk.TryGetSellingData(out float exchangePrice, out Product productForExchange, out float quantity))
-            {
-                if (_clerk.TrySellProduct(productForExchange, quantity) && _player.TryPayProduct(exchangePrice))
-                {
-                    _clerk.SellProduct(exchangePrice, productForExchange, quantity);
-                    _player.BuyProduct(exchangePrice, productForExchange, quantity);
-                }
-            }
-        }
-    }
-
     class Shop
     {
         private Clerk _clerk;
         private Player _player;
-        private Exchange _exchange;
 
         public Shop(Clerk clerk, Player player)
         {
             _clerk = clerk;
             _player = player;
-
-            _exchange = new Exchange(_clerk, _player);
         }
 
         public void Work()
@@ -374,15 +356,15 @@ namespace Homework1_6_6
                 switch (command)
                 {
                     case ExchangeProductsCommand:
-                        _exchange.SellProduct();
+                        SellProduct();
                         break;
 
                     case ShowClerkProductsCommand:
-                        _clerk.ShowProductsInfo();
+                        _clerk.ShowInfo();
                         break;
 
                     case ShowPlayerProductsCommand:
-                        _player.ShowProductsInfo();
+                        _player.ShowInfo();
                         break;
 
                     case ExitCommand:
@@ -397,5 +379,29 @@ namespace Homework1_6_6
                 Console.ReadKey();
             }
         }
+
+        private void SellProduct()
+        {
+            if (_clerk.TryGetSellingData(out float exchangePrice, out Cell cellProduct ))
+            {
+                if (_clerk.TrySellProduct(cellProduct) && _player.TryPayProduct(exchangePrice))
+                {
+                    _clerk.SellProduct(exchangePrice, cellProduct);
+                    _player.BuyProduct(exchangePrice, cellProduct);
+                }
+            }
+        }
+    }
+
+    class Cell
+    {
+        public Cell(Product product, float quantity)
+        {
+            Product = product;
+            Quantity = quantity;
+        }
+
+        public Product Product { get; set; }
+        public float Quantity { get; set; }
     }
 }
