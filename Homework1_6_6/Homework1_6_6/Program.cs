@@ -179,7 +179,7 @@ namespace Homework1_6_6
             }            
         }
 
-        protected bool TryGetCellProduct(string name, out Cell desiredCell)
+        protected bool TryGetSaleProduct(string name, out Cell desiredCell)
         {
             foreach (var cell in Products)
             {
@@ -215,16 +215,16 @@ namespace Homework1_6_6
 
             foreach (var cell in Products)
             {
-                cell.Quantity *=ConvertQuantityAll(cell.Product);
+                cell.ConvertQuantity(ConvertQuantityAll(cell.Product));
             }
         }
 
-        public bool TryGetSellingData(out float exchangePrice, out Cell cellProduct)
+        public bool TryGetSoldData(out float exchangePrice, out Cell cellProduct)
         {
             Console.Write("Введите имя продукта: ");
             string inputName = Console.ReadLine();
 
-            if (TryGetCellProduct(inputName, out Cell productToFind))
+            if (TryGetSaleProduct(inputName, out Cell productToFind))
             {
                 ProductToSell productForExchange = (ProductToSell)productToFind.Product;
                 Console.Write("Введите количество товара в " + productForExchange.Type + ": ");
@@ -255,9 +255,9 @@ namespace Homework1_6_6
             return false;
         }
 
-        public bool TrySellProduct(Cell cellProduct)
+        public bool TrySaleProduct(Cell cellProduct)
         {
-            if (TryGetCellProduct(cellProduct.Product.Name, out Cell cell))
+            if (TryGetSaleProduct(cellProduct.Product.Name, out Cell cell))
             {
                 if (cell.Quantity >= cellProduct.Quantity)
                 {
@@ -269,13 +269,13 @@ namespace Homework1_6_6
             return false;
         }
 
-        public void SellProduct(float exchangePrice, Cell cellProduct)
+        public void SaleProduct(float exchangePrice, Cell cellProduct)
         {
             Money += exchangePrice;
 
-            if (TryGetCellProduct(cellProduct.Product.Name, out Cell cell))
+            if (TryGetSaleProduct(cellProduct.Product.Name, out Cell cell))
             {
-                cell.Quantity -= cellProduct.Quantity;
+                cell.SaleProduct(cellProduct.Quantity);
             }
         }
 
@@ -298,9 +298,9 @@ namespace Homework1_6_6
             Product product = new Product(cell.Product.Name, cell.Product.Type);
             Cell cellProduct = new Cell(product, cell.Quantity);
 
-            if (TryGetCellProduct(cellProduct.Product.Name, out Cell existingProduct))
+            if (TryGetSaleProduct(cellProduct.Product.Name, out Cell existingProduct))
             {
-                existingProduct.Quantity+= cell.Quantity;
+                existingProduct.BuyProduct(cell.Quantity);
             }
             else
             {
@@ -356,7 +356,7 @@ namespace Homework1_6_6
                 switch (command)
                 {
                     case ExchangeProductsCommand:
-                        SellProduct();
+                        SaleProduct();
                         break;
 
                     case ShowClerkProductsCommand:
@@ -380,13 +380,13 @@ namespace Homework1_6_6
             }
         }
 
-        private void SellProduct()
+        private void SaleProduct()
         {
-            if (_clerk.TryGetSellingData(out float exchangePrice, out Cell cellProduct ))
+            if (_clerk.TryGetSoldData(out float exchangePrice, out Cell cellProduct ))
             {
-                if (_clerk.TrySellProduct(cellProduct) && _player.TryPayProduct(exchangePrice))
+                if (_clerk.TrySaleProduct(cellProduct) && _player.TryPayProduct(exchangePrice))
                 {
-                    _clerk.SellProduct(exchangePrice, cellProduct);
+                    _clerk.SaleProduct(exchangePrice, cellProduct);
                     _player.BuyProduct(exchangePrice, cellProduct);
                 }
             }
@@ -401,7 +401,22 @@ namespace Homework1_6_6
             Quantity = quantity;
         }
 
-        public Product Product { get; set; }
-        public float Quantity { get; set; }
+        public Product Product { get; private set; }
+        public float Quantity { get; private set; }
+
+        public void SaleProduct(float quantity)
+        {
+            Quantity -= quantity;
+        }
+
+        public void BuyProduct(float quantity)
+        {
+            Quantity += quantity;
+        }
+
+        public void ConvertQuantity(float convertValue)
+        {
+            Quantity *= convertValue;
+        }
     }
 }
